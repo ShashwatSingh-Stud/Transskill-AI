@@ -1,0 +1,98 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:dev.db"
+}
+
+model UserProfile {
+  id             String      @id @default(uuid())
+  name           String
+  email          String      @unique
+  education      String?     // e.g. "Bachelors", "Self-Taught"
+  experience     Int?        // Years of experience
+  currentRoleId  String?
+  targetRoleId   String?     // The role they want
+  skills         UserSkill[]
+  savedPathways  SavedPathway[]
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  currentRole    JobRole?    @relation("CurrentRole", fields: [currentRoleId], references: [id])
+  targetRole     JobRole?    @relation("TargetRole", fields: [targetRoleId], references: [id])
+}
+
+model Skill {
+  id               String             @id @default(uuid())
+  name             String             @unique
+  category         String
+  difficulty       Int                @default(3) // 1-5 scale
+  demandTrend      String             @default("Stable") // "Rising", "Stable", "Declining"
+  avgSalaryBoost   Int                @default(5000) // Extrapolated value
+  userSkills       UserSkill[]
+  roleSkills       RoleSkill[]
+  learningResources LearningResource[]
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+}
+
+model JobRole {
+  id                String        @id @default(uuid())
+  title             String        @unique
+  description       String?
+  demandScore       Float         // 0-10 score for market demand
+  roleSkills        RoleSkill[]
+  currentUsers      UserProfile[] @relation("CurrentRole")
+  targetUsers       UserProfile[] @relation("TargetRole")
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+}
+
+model UserSkill {
+  id          String      @id @default(uuid())
+  userId      String
+  skillId     String
+  level       Int         // 1-5 proficiency
+  confidence  Int         @default(50) // 0-100 slider
+  status      String      @default("Learned") // "Learned", "Learning", "Planned"
+  user        UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill       Skill       @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  createdAt   DateTime    @default(now())
+
+  @@unique([userId, skillId])
+}
+
+model RoleSkill {
+  id          String      @id @default(uuid())
+  roleId      String
+  skillId     String
+  importance  Int         // 1-5 how important skill is for the role
+  role        JobRole     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  skill       Skill       @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  createdAt   DateTime    @default(now())
+
+  @@unique([roleId, skillId])
+}
+
+model LearningResource {
+  id          String   @id @default(uuid())
+  skillId     String
+  title       String
+  provider    String   // e.g. "Coursera", "Udemy", "YouTube"
+  url         String
+  cost        String   // "Free", "$10/mo", etc
+  duration    String   // "4 weeks", "10 hours"
+  skill       Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+}
+
+model SavedPathway {
+  id             String      @id @default(uuid())
+  userId         String
+  targetRoleId   String
+  recommendedData String      // Stored JSON of the prediction result
+  user           UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime    @default(now())
+}
